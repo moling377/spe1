@@ -1,0 +1,21 @@
+<!-- name=templates/login.html -->
+{% extends "layout.html" %}
+{% block body %}
+  <h3>选择用户登录（示例）</h3>
+  <form method="post" class="mb-3">
+    <div class="mb-2">
+      <label>输入用户 ID（1 ~ 1001，大量用户请使用搜索）</label>
+      <input name="user_id" class="form-control" placeholder="User ID">
+    </div>
+    <button class="btn btn-primary">登录</button>
+  </form>
+
+  <h5>快速示例用户（前 50）</h5>
+  <div class="list-group">
+    {% for u in users %}
+      <a class="list-group-item list-group-item-action" href="{{ url_for('login') }}" onclick="event.preventDefault(); document.querySelector('input[name=user_id]').value='{{u.id}}'; this.closest('form').submit();">
+        {{ u.id }} - {{ u.name }} ({{u.city}})
+      </a>
+    {% endfor %}
+  </div>
+{% endblock %}

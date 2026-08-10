@@ -1,0 +1,45 @@
+<!-- name=templates/profiles.html -->
+{% extends "layout.html" %}
+{% block body %}
+  <form class="mb-3 row" method="get">
+    <div class="col-auto">
+      <input name="q" class="form-control" value="{{ q }}" placeholder="搜索名字或城市">
+    </div>
+    <div class="col-auto">
+      <button class="btn btn-secondary">搜索</button>
+    </div>
+  </form>
+
+  <div class="row">
+    {% for u in users %}
+      <div class="col-md-6 mb-3">
+        <div class="card">
+          <div class="card-body">
+            <h5>{{ u.name }} <small class="text-muted">({{ u.age }})</small></h5>
+            <p>{{ u.city }}</p>
+            <p>{{ u.bio }}</p>
+            <form method="post" action="{{ url_for('like', uid=u.id) }}" style="display:inline">
+              <button class="btn btn-sm btn-outline-primary">❤ 喜欢</button>
+            </form>
+            <a class="btn btn-sm btn-link" href="{{ url_for('profile', uid=u.id) }}">查看</a>
+            {% if u.id in matches %}
+              <span class="badge bg-success">已匹配</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <nav>
+    <ul class="pagination">
+      {% if page>1 %}
+        <li class="page-item"><a class="page-link" href="?page={{page-1}}&q={{q}}">上一页</a></li>
+      {% endif %}
+      <li class="page-item"><span class="page-link">第 {{page}} 页</span></li>
+      {% if total > page*per %}
+        <li class="page-item"><a class="page-link" href="?page={{page+1}}&q={{q}}">下一页</a></li>
+      {% endif %}
+    </ul>
+  </nav>
+{% endblock %}

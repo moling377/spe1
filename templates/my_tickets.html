@@ -1,0 +1,13 @@
+<!-- name=templates/my_tickets.html -->
+{% extends "layout.html" %}
+{% block body %}
+  <h3>我的工单</h3>
+  <ul class="list-group">
+    {% for t in tickets %}
+      <li class="list-group-item">
+        请求对象：{{ t.target_id }} — 状态：{{ t.status }} — 提交时间：{{ t.created_at }}
+        <a class="btn btn-sm btn-link" href="{{ url_for('view_ticket', ticket_id=t.id) }}">查看</a>
+      </li>
+    {% endfor %}
+  </ul>
+{% endblock %}

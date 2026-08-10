@@ -1,0 +1,6 @@
+# Ignore virtual environment and Python build files
+venv/
+__pycache__/
+*.pyc
+data.db
+.env

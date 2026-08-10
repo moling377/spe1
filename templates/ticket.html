@@ -1,0 +1,19 @@
+<!-- name=templates/ticket.html -->
+{% extends "layout.html" %}
+{% block body %}
+  <h3>工单 #{{ ticket.id }}</h3>
+  <p>请求者: {{ ticket.requester_id }} | 目标: {{ ticket.target_id }}</p>
+  <p>状态: {{ ticket.status }} | 提交: {{ ticket.created_at }}</p>
+
+  {% if ticket.status == "approved" %}
+    <div class="alert alert-success">
+      已批准 — 对方联系方式：<br>
+      邮箱: {{ target.email }}<br>
+      电话: {{ target.phone }}
+    </div>
+  {% elif ticket.status == "rejected" %}
+    <div class="alert alert-danger">已拒绝</div>
+  {% else %}
+    <div class="alert alert-info">等待客服处理</div>
+  {% endif %}
+{% endblock %}

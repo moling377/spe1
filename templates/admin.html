@@ -1,0 +1,30 @@
+<!-- name=templates/admin.html -->
+{% extends "layout.html" %}
+{% block body %}
+  <h3>管理员后台 - 工单</h3>
+  <table class="table">
+    <thead><tr><th>ID</th><th>请求者</th><th>目标</th><th>状态</th><th>操作</th></tr></thead>
+    <tbody>
+      {% for t in tickets %}
+        <tr>
+          <td>{{ t.id }}</td>
+          <td>{{ t.requester_id }}</td>
+          <td>{{ t.target_id }}</td>
+          <td>{{ t.status }}</td>
+          <td>
+            <form method="post" action="{{ url_for('admin_handle', ticket_id=t.id) }}" style="display:inline">
+              <input type="hidden" name="action" value="approve">
+              <button class="btn btn-sm btn-success">批准</button>
+            </form>
+            <form method="post" action="{{ url_for('admin_handle', ticket_id=t.id) }}" style="display:inline">
+              <input type="hidden" name="action" value="reject">
+              <button class="btn btn-sm btn-danger">拒绝</button>
+            </form>
+            <a class="btn btn-sm btn-link" href="{{ url_for('view_ticket', ticket_id=t.id) }}">查看</a>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p>提示：未登录管理员也可以使用 ?pw={{ ADMIN_PASSWORD }} 访问（仅示例）</p>
+{% endblock %}
