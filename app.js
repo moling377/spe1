@@ -1,4 +1,4 @@
-// app.js - use higher-resolution Unsplash images and ensure photos are sharper
+// app.js - use higher-resolution Unsplash images and ensure photos are sharper with srcset 2x
 (function(){
   const USER_COUNT = 1000;
   const PAGE_SIZE = 24;
@@ -54,7 +54,7 @@
   // matching logic
   function scoreProfile(profile, visitorInterests){
     // Always return an object so callers can rely on .score, .shared, .sharedCount
-    const v = (visitorInterests && visitorInterests.length) ? visitorInterests : [];
+    const v = (Array.isArray(visitorInterests) && visitorInterests.length) ? visitorInterests : [];
     if(v.length === 0){
       return { score: 0, shared: [], sharedCount: 0 };
     }
@@ -115,8 +115,11 @@
     const start = (page-1)*PAGE_SIZE; const items = scored.slice(start, start+PAGE_SIZE);
     items.forEach(p=>{ const col = document.createElement('div'); col.className='col-12 col-sm-6 col-md-4 col-lg-3'; const sharedHtml = p.shared && p.shared.length ? `<div class="mt-2">${p.shared.map(t=>`<span class="tag-chip match">${t}</span>`).join(' ')}</div>` : '';
       const safeScore = (typeof p.matchScore === 'number' && !isNaN(p.matchScore)) ? p.matchScore : 0;
+      // prepare srcset (replace 600x600 with 1200x1200)
+      const photo2x = (p.photo && p.photo.indexOf('/600x600/') !== -1) ? p.photo.replace('/600x600/','/1200x1200/') : p.photo;
+      const imgHtml = `<img loading="lazy" src="${p.photo}" srcset="${photo2x} 2x" class="profile-photo" alt="${p.name}">`;
       col.innerHTML = `<div class="profile-card" data-id="${p.id}">
-        <img loading="lazy" src="${p.photo}" class="profile-photo" alt="${p.name}">
+        ${imgHtml}
         <div class="profile-body">
           <div class="d-flex justify-content-between align-items-start">
             <div><div class="profile-name">${p.name}</div><div class="profile-sub">${p.age} • ${p.job} • ${p.country}</div></div>
@@ -133,7 +136,11 @@
     });
   }
 
-  function openProfileModal(id){ const p = users.find(x=>x.id===id); if(!p) return; const visitor = getVisitor(); const match = scoreProfile(p, visitor && visitor.interests ? visitor.interests : []); document.getElementById('modal-photo').src = p.photo; document.getElementById('modal-name').textContent = `${p.name}`; document.getElementById('modal-meta').textContent = `${p.age} • ${p.job} • ${p.country}`; document.getElementById('modal-bio').textContent = p.bio + ' Email: ' + p.email; const tags = document.getElementById('modal-tags'); tags.innerHTML = p.interests.map(t=>`<span class="tag-chip ${visitor && visitor.interests && visitor.interests.includes(t)?'match':''}">${t}</span>`).join(' ');
+  function openProfileModal(id){ const p = users.find(x=>x.id===id); if(!p) return; const visitor = getVisitor(); const match = scoreProfile(p, visitor && visitor.interests ? visitor.interests : []);
+    const modalPhotoEl = document.getElementById('modal-photo');
+    modalPhotoEl.src = p.photo;
+    if(p.photo && p.photo.indexOf('/600x600/') !== -1) modalPhotoEl.srcset = p.photo.replace('/600x600/','/1200x1200/') + ' 2x';
+    document.getElementById('modal-name').textContent = `${p.name}`; document.getElementById('modal-meta').textContent = `${p.age} • ${p.job} • ${p.country}`; document.getElementById('modal-bio').textContent = p.bio + ' Email: ' + p.email; const tags = document.getElementById('modal-tags'); tags.innerHTML = p.interests.map(t=>`<span class="tag-chip ${visitor && visitor.interests && visitor.interests.includes(t)?'match':''}">${t}</span>`).join(' ');
     const actions = document.getElementById('modal-actions'); actions.innerHTML = '';
     const contactBtn = document.createElement('button'); contactBtn.className='btn btn-success me-2'; contactBtn.textContent = 'Contact Support (WhatsApp)'; contactBtn.onclick = ()=>{ openWhatsApp(visitor, p, match); };
     const favBtn = document.createElement('button'); favBtn.className='btn btn-outline-primary'; favBtn.textContent = getFavs().includes(p.id)?'♥ Favorited':'♡ Favorite'; favBtn.onclick = ()=>{ toggleFav(p.id); favBtn.textContent = getFavs().includes(p.id)?'♥ Favorited':'♡ Favorite'; };
