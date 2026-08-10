@@ -1,14 +1,20 @@
-# Static Dating Demo — 改进版
+# Static Dating Demo — English UX, gender-based recommendations
 
-更新内容：
-- 游客可直接浏览首页，无需登录
-- 每个用户卡片带有头像（使用 randomuser 的头像），显示真实感更强的名字、年龄、职业和简介
-- 点击“联系客服”或卡片内的联系客服按钮会直接打开 WhatsApp 聊天（+1 832-541-1560），并带上简短说明
-- 保持地点显示为 "USA"（不显示具体城市）
-- 点击卡片可查看大图及详情，详情中也有喜欢和联系客服按钮
+Changes in this commit:
+- Site language changed to English.
+- Visitor chooses their gender on the homepage by clicking "I'm Male" or "I'm Female"; the app then recommends profiles of the opposite gender.
+- Removed the previous "switch user / current user" concept — visitors browse as guests; favorites are stored per browser (localStorage).
+- Clicking a profile card opens WhatsApp to contact support for that profile. The Contact button also opens WhatsApp.
+- Added a simulated "Online now" counter that updates every 2 seconds to show a fluctuating number.
+- Favorites (heart) are stored in localStorage for the visitor and displayed in the Visitor panel.
 
-部署与测试：
-- 在仓库检出 add-dating-mvp 分支，或将分支合并到 main 后启用 GitHub Pages
-- 本地测试：在仓库目录直接打开 index.html，或运行临时静态服务：
-  python -m http.server 8000
-  然后访问 http://localhost:8000
+How to test locally:
+1. Clone or pull the repo and ensure you are on the main branch.
+2. Serve the folder with a static server (recommended):
+   python -m http.server 8000
+   Open http://localhost:8000
+3. Click "I'm Male" or "I'm Female" to filter recommendations by opposite gender. Click any profile card to open WhatsApp with a message including your visitor type and the profile name.
+
+Notes:
+- Support WhatsApp number is set to: +1 832-541-1560 (value in app.js is without the +: '18325411560').
+- If you want to use local images instead of randomuser.me portraits, put images into an images/ folder and change the seedUsers logic in app.js accordingly.
