@@ -1,0 +1,7 @@
+/* styles.css */
+body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
+.profile-card { min-height: 160px; }
+.admin-panel { position: fixed; right: 20px; top: 80px; width: 420px; max-height: 70vh; overflow:auto; z-index: 1050; }
+.modal { display:none; position: fixed; left:0; top:0; right:0; bottom:0; align-items:center; justify-content:center; background: rgba(0,0,0,0.4); z-index:2000; }
+.modal .modal-dialog { max-width: 540px; }
+.modal.show { display:flex; }
