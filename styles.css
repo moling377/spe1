@@ -1,16 +1,28 @@
 /* styles.css */
-:root{ --card-bg: #fff; --muted:#6c757d }
-body{ font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
-.profile-card{ background:var(--card-bg); border-radius:12px; box-shadow:0 1px 8px rgba(0,0,0,.08); overflow:hidden; cursor:pointer }
-.profile-photo{ width:100%; height:220px; object-fit:cover; display:block }
-.profile-body{ padding:12px }
-.profile-name{ font-weight:600 }
+:root{
+  --bg-gradient: linear-gradient(90deg, rgba(40,99,255,0.95) 0%, rgba(90,43,255,0.9) 100%);
+  --muted: #6c757d;
+  --card-bg: #ffffff;
+  --accent: #5a2bff;
+}
+body{ font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background: #f8f9fa; }
+.site-hero{ background: var(--bg-gradient); color: #fff; }
+.site-hero .hero-image{ width:420px; height:320px; object-fit:cover }
+.small-muted{ color:var(--muted); }
+.hero-controls .btn-light{ background: rgba(255,255,255,0.12); color: #fff; }
+
+.profile-card{ background:var(--card-bg); border-radius:14px; overflow:hidden; box-shadow:0 6px 18px rgba(16,24,40,0.06); cursor:pointer; transition:transform .18s ease, box-shadow .18s ease; }
+.profile-card:hover{ transform:translateY(-6px); box-shadow:0 12px 30px rgba(16,24,40,0.12); }
+.profile-photo{ width:100%; height:260px; object-fit:cover; display:block }
+.profile-body{ padding:14px }
+.profile-name{ font-weight:600; font-size:1rem }
 .profile-sub{ color:var(--muted); font-size:13px }
-.btn-like{ width:110px }
-.modal{ display:none; position:fixed; inset:0; align-items:center; justify-content:center; background: rgba(0,0,0,0.4); z-index:2000 }
-.modal.show{ display:flex }
+.tag-chip{ background:#f1f3ff; color:#2b2b2b; padding:4px 8px; border-radius:999px; font-size:12px }
+.tag-chip.match{ background: var(--accent); color: #fff }
+.match-score{ font-weight:600; color:var(--accent); }
+.progress-bar-lite{ height:8px; background:#e9ecef; border-radius:999px; overflow:hidden }
+.progress-bar-lite > i{ display:block; height:100%; background:var(--accent); width:0%; transition:width .4s ease }
 
-/* grid responsiveness */
-@media(min-width:1400px){ .col-xl-3 { max-width: 25% } }
+.modal-photo{ width:180px; height:180px; object-fit:cover }
 
-.small-muted{ color:var(--muted); font-size:13px }
+@media (max-width:767px){ .site-hero .hero-image{ display:none } .profile-photo{ height:200px } }

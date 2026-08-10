@@ -1,22 +1,22 @@
-// app.js - English UX, visitor gender selection, remove switch-user concept, click card opens WhatsApp, fake online counter, favorites per visitor
+// app.js - improved matching by interests, better UI behavior, English text, hero, load more
 (function(){
   const USER_COUNT = 1000;
-  const PER_PAGE = 24;
-  const SUPPORT_WHATSAPP = '18325411560'; // support WhatsApp (international format without +)
+  const PAGE_SIZE = 24;
+  const SUPPORT_WHATSAPP = '18325411560';
 
+  // simple data pools
   const firsts = ["James","John","Robert","Michael","William","David","Richard","Joseph","Thomas","Charles","Christopher","Daniel","Matthew","Anthony","Mark","Paul","Andrew","Joshua","Kenneth","Kevin","Brian","George","Edward","Ronald","Timothy","Jason","Jeffrey","Ryan","Eric","Jacob"];
   const lasts = ["Smith","Johnson","Williams","Brown","Jones","Garcia","Miller","Davis","Rodriguez","Martinez","Hernandez","Lopez","Gonzalez","Wilson","Anderson","Taylor","Thomas","Moore","Jackson","Martin","Lee","Perez","Thompson"];
   const jobs = ["Software Engineer","Designer","Product Manager","Teacher","Nurse","Photographer","Sales Manager","Data Analyst","Chef","Marketing Specialist","Student","Consultant","Accountant","Lawyer","Entrepreneur"];
-  const hobbies = ["hiking","coffee","traveling","reading","live music","gardening","cooking","yoga","photography","running","movies","board games","coding"];
+  const interestsPool = ["hiking","coffee","travel","reading","music","gardening","cooking","yoga","photography","running","movies","games","coding","tech","art","sports","traveling","pets","fashion","fitness"];
 
   function randInt(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
   function pick(arr){ return arr[randInt(0,arr.length-1)]; }
-  function makeEmail(name,id){ return `${name.toLowerCase().replace(/\s+/g,'')}${id}@example.com`; }
-  function phone(){ return `+1-${randInt(200,999)}-${randInt(200,999)}-${randInt(1000,9999)}`; }
 
-  const K_USERS = 'dm_users_v3';
-  const K_FAVS = 'dm_favs_v3';
-  const K_VISITOR = 'dm_visitor_v3';
+  // localStorage keys
+  const K_USERS = 'dm_users_v4';
+  const K_VISITOR = 'dm_visitor_v4';
+  const K_FAVS = 'dm_favs_v4';
 
   function seedUsers(){
     let users = JSON.parse(localStorage.getItem(K_USERS) || 'null');
@@ -24,120 +24,133 @@
     users = [];
     for(let i=1;i<=USER_COUNT;i++){
       const name = `${pick(firsts)} ${pick(lasts)}`;
-      const age = randInt(19,55);
+      const age = randInt(20,50);
       const job = pick(jobs);
-      const hobby = pick(hobbies);
-      const imgIndex = (i % 100);
+      const photoIndex = i % 100;
       const gender = (i % 2 === 0) ? 'male' : 'female';
-      const photo = `https://randomuser.me/api/portraits/${gender === 'male' ? 'men' : 'women'}/${imgIndex}.jpg`;
-      users.push({ id:i, name, age, country:'USA', gender, job, bio:`${job} who likes ${hobby} and meeting new people.`, email:makeEmail(name,i), phone:phone(), photo });
+      // interests: pick 2-6 unique tags
+      let ints = [];
+      const count = randInt(2,6);
+      while(ints.length < count){ const t = pick(interestsPool); if(!ints.includes(t)) ints.push(t); }
+      const photo = `https://randomuser.me/api/portraits/${gender === 'male' ? 'men' : 'women'}/${photoIndex}.jpg`;
+      users.push({ id:i, name, age, job, country:'USA', gender, interests: ints, bio: `${job} who likes ${ints.slice(0,3).join(', ')}.`, email:`${name.toLowerCase().replace(/\s+/g,'')}${i}@example.com`, phone:`+1-${randInt(200,999)}-${randInt(200,999)}-${randInt(1000,9999)}`, photo});
     }
-    // admin user (not part of pool)
-    users.push({ id: USER_COUNT + 1, name: 'SiteAdmin', age: 30, country:'USA', gender:'male', job:'Administrator', bio:'Site admin', email:'admin@example.com', phone:'+1-832-541-1560', photo: 'https://randomuser.me/api/portraits/men/10.jpg', is_admin:true });
+    users.push({ id: USER_COUNT + 1, name: 'SiteAdmin', age: 30, job:'Administrator', country:'USA', gender:'male', interests:['support'], bio:'Site admin', email:'admin@example.com', phone:'+1-832-541-1560', photo:'https://randomuser.me/api/portraits/men/10.jpg', is_admin:true});
     localStorage.setItem(K_USERS, JSON.stringify(users));
     return users;
   }
 
-  function getFavs(){ return JSON.parse(localStorage.getItem(K_FAVS) || '[]'); }
-  function saveFavs(a){ localStorage.setItem(K_FAVS, JSON.stringify(a)); }
+  // state helpers
   function getVisitor(){ return JSON.parse(localStorage.getItem(K_VISITOR) || 'null'); }
   function saveVisitor(v){ localStorage.setItem(K_VISITOR, JSON.stringify(v)); }
+  function getFavs(){ return JSON.parse(localStorage.getItem(K_FAVS) || '[]'); }
+  function saveFavs(a){ localStorage.setItem(K_FAVS, JSON.stringify(a)); }
 
-  function toggleFav(id){ const favs = getFavs(); if(favs.includes(id)){ const idx=favs.indexOf(id); favs.splice(idx,1); } else { favs.push(id); } saveFavs(favs); renderFavCount(); }
+  function toggleFav(id){ const favs = getFavs(); const idx = favs.indexOf(id); if(idx>=0){ favs.splice(idx,1); } else { favs.push(id); } saveFavs(favs); renderFavCount(); }
   function renderFavCount(){ document.getElementById('fav-count').textContent = getFavs().length; }
 
-  function openSupport(visitor, targetId){
-    const users = JSON.parse(localStorage.getItem(K_USERS) || '[]');
-    const target = users.find(u=>u.id===targetId);
+  // matching logic
+  function scoreProfile(profile, visitorInterests){
+    if(!visitorInterests || visitorInterests.length===0) return 0;
+    const shared = profile.interests.filter(x=>visitorInterests.includes(x));
+    const sharedCount = shared.length;
+    const score = Math.round((sharedCount / visitorInterests.length) * 100);
+    return { score, shared, sharedCount };
+  }
+
+  // WhatsApp opener
+  function openWhatsApp(visitor, profile, match){
     const visitorText = visitor ? `${visitor.type} visitor` : 'Guest';
-    const t = target ? `${target.name} (ID:${target.id})` : `User ${targetId}`;
-    const text = encodeURIComponent(`Hello, I am a ${visitorText}. I'm interested in ${t}. Please assist.`);
+    const interestsText = visitor && visitor.interests && visitor.interests.length ? `Interests: ${visitor.interests.join(', ')}` : '';
+    const matchText = match && match.sharedCount ? `Shared interests: ${match.shared.join(', ')}` : '';
+    const text = encodeURIComponent(`Hello, I am a ${visitorText}. I'm interested in ${profile.name} (ID:${profile.id}). ${interestsText} ${matchText}`);
     const url = `https://wa.me/${SUPPORT_WHATSAPP}?text=${text}`;
     window.open(url, '_blank');
   }
 
-  // online counter simulation
-  function startOnlineCounter(){
-    const el = document.getElementById('online-count');
-    let base = 1200 + randInt(0,800); // starting online
-    el.textContent = base.toLocaleString();
-    setInterval(()=>{
-      // small random walk
-      const delta = randInt(-15,25);
-      base = Math.max(50, base + delta);
-      el.textContent = base.toLocaleString();
-    }, 2000);
-  }
-
-  // UI
+  // UI rendering
   const users = seedUsers();
   let page = 1;
+  let currentList = [];
 
-  const grid = document.getElementById('profile-grid');
-  const pager = document.getElementById('pager');
-  const visitorTypeEl = document.getElementById('visitor-type');
+  // interest chips in hero
+  function renderHeroInterests(){
+    const container = document.getElementById('hero-interests'); container.innerHTML = '';
+    const pool = interestsPool.slice(0,18);
+    pool.forEach(tag=>{
+      const btn = document.createElement('button'); btn.className='btn btn-sm btn-outline-light'; btn.textContent = tag; btn.onclick = ()=>{ toggleHeroInterest(tag, btn); };
+      container.appendChild(btn);
+    });
+  }
 
-  function renderSample(){ const sampleBox = document.getElementById('sample-users'); sampleBox.innerHTML=''; const sample = users.slice(0,24); sample.forEach(u=>{ const b=document.createElement('div'); b.className='me-2 mb-2 small'; b.innerHTML = `<button class="btn btn-sm btn-outline-secondary">${u.id} ${u.name}</button>`; b.querySelector('button').onclick = ()=>{ toggleFav(u.id); alert('Added to favorites'); }; sampleBox.appendChild(b); }); }
+  function getVisitorInterests(){ const v = getVisitor(); return v && v.interests ? v.interests : []; }
+  function toggleHeroInterest(tag, btn){ let v = getVisitor(); if(!v) v = { type:null, interests:[] };
+    const idx = v.interests.indexOf(tag);
+    if(idx>=0){ v.interests.splice(idx,1); btn.classList.remove('active'); } else {
+      if(v.interests.length >= 5) { alert('You can choose up to 5 interests'); return; }
+      v.interests.push(tag); btn.classList.add('active'); }
+    saveVisitor(v); render(); renderMatchSummary(); }
 
-  function setVisitor(type){ const v={ type: type === 'male' ? 'Male' : 'Female' }; saveVisitor(v); visitorTypeEl.textContent = v.type; }
+  function setVisitorType(type){ let v = getVisitor() || { type:null, interests:[] }; v.type = type; saveVisitor(v); renderMatchSummary(); render(); }
 
-  function render(p=1, q=''){ page=p; grid.innerHTML=''; const start=(p-1)*PER_PAGE; const visitor = getVisitor(); let list = users.slice(0,USER_COUNT); if(visitor && visitor.type){ const wanted = visitor.type.toLowerCase() === 'male' ? 'female' : 'male'; list = list.filter(u=>u.gender === wanted); }
-    if(q){ const qq=q.toLowerCase(); list = list.filter(u=>u.name.toLowerCase().includes(qq) || u.job.toLowerCase().includes(qq)); }
-    const total=list.length; const items=list.slice(start, start+PER_PAGE);
-    items.forEach(u=>{
-      const col=document.createElement('div'); col.className='col-12 col-sm-6 col-md-4 col-lg-3';
-      col.innerHTML = `<div class="profile-card" data-id="${u.id}">
-        <img loading="lazy" src="${u.photo}" class="profile-photo" alt="${u.name}">
+  function renderMatchSummary(){ const visitor = getVisitor(); const el = document.getElementById('match-summary'); if(visitor && visitor.interests && visitor.interests.length){ el.textContent = `Showing profiles matched by interests: ${visitor.interests.join(', ')}`; } else { el.textContent = 'Choose interests to see tailored recommendations.'; } }
+
+  function renderGrid(reset=false){
+    if(reset) page = 1; const grid = document.getElementById('profile-grid'); if(reset) grid.innerHTML = '';
+    const visitor = getVisitor(); let list = users.slice(0,USER_COUNT);
+    // filter by opposite gender if visitor set
+    if(visitor && visitor.type){ const wanted = visitor.type.toLowerCase() === 'male' ? 'female' : 'male'; list = list.filter(u=>u.gender === wanted); }
+    // compute scores
+    const vInterests = visitor && visitor.interests ? visitor.interests : [];
+    const scored = list.map(p=>{ const s = scoreProfile(p, vInterests); return Object.assign({}, p, { matchScore: s.score, shared: s.shared, sharedCount: s.sharedCount }); });
+    // prefer those with sharedCount>0, sort by score desc then random
+    scored.sort((a,b)=>{ if(a.matchScore===b.matchScore) return Math.random()-0.5; return b.matchScore - a.matchScore; });
+    currentList = scored;
+    const start = (page-1)*PAGE_SIZE; const items = scored.slice(start, start+PAGE_SIZE);
+    items.forEach(p=>{ const col = document.createElement('div'); col.className='col-12 col-sm-6 col-md-4 col-lg-3'; const sharedHtml = p.shared && p.shared.length ? `<div class="mt-2">${p.shared.map(t=>`<span class="tag-chip match">${t}</span>`).join(' ')}</div>` : '';
+      col.innerHTML = `<div class="profile-card" data-id="${p.id}">
+        <img loading="lazy" src="${p.photo}" class="profile-photo" alt="${p.name}">
         <div class="profile-body">
           <div class="d-flex justify-content-between align-items-start">
-            <div><div class="profile-name">${u.name}</div><div class="profile-sub">${u.age} • ${u.job} • ${u.country}</div></div>
-            <div>
-              <button class="btn btn-sm btn-outline-primary btn-like">❤</button>
-            </div>
+            <div><div class="profile-name">${p.name}</div><div class="profile-sub">${p.age} • ${p.job} • ${p.country}</div></div>
+            <div><div class="match-score">${p.matchScore}%</div></div>
           </div>
-          <p class="mt-2 small-muted">${u.bio}</p>
-          <div class="d-flex gap-2 mt-2">
-            <button class="btn btn-sm btn-light btn-view">View</button>
-            <button class="btn btn-sm btn-success btn-contact">Contact</button>
-          </div>
+          <p class="mt-2 small-muted">${p.bio}</p>
+          <div class="d-flex flex-wrap gap-2 mt-2">${p.interests.map(t=>`<span class="tag-chip ${getVisitorInterests().includes(t)?'match':''}">${t}</span>`).join(' ')}</div>
+          ${sharedHtml}
         </div></div>`;
-      // clicking the card opens WhatsApp for that profile
+      // event handlers
       const card = col.querySelector('.profile-card');
-      card.onclick = (e)=>{
-        // if clicked on a button, let button handler run
-        if(e.target.closest('button')) return;
-        const visitor = getVisitor(); openSupport(visitor, u.id);
-      };
-      col.querySelector('.btn-view').onclick = (ev)=>{ ev.stopPropagation(); openModal(u.id); };
-      col.querySelector('.btn-contact').onclick = (ev)=>{ ev.stopPropagation(); openSupport(getVisitor(), u.id); };
-      const likeBtn = col.querySelector('.btn-like'); likeBtn.onclick = (ev)=>{ ev.stopPropagation(); toggleFav(u.id); likeBtn.textContent = getFavs().includes(u.id) ? '♥' : '❤'; renderFavCount(); };
+      card.onclick = (e)=>{ if(e.target.closest('button')) return; openProfileModal(p.id); };
       grid.appendChild(col);
     });
-    renderPager(total);
-    renderFavCount();
   }
 
-  function renderPager(total){ pager.innerHTML=''; const pages = Math.max(1, Math.ceil(total / PER_PAGE)); for(let i=1;i<=pages;i++){ const li=document.createElement('li'); li.className='page-item'+(i===page?' active':''); const a=document.createElement('a'); a.className='page-link'; a.href='#'; a.textContent=i; a.onclick=(e)=>{ e.preventDefault(); render(i, document.getElementById('search-q').value.trim()); }; li.appendChild(a); pager.appendChild(li); if(i>=8 && i<pages){ const more=document.createElement('li'); more.className='page-item disabled'; more.innerHTML='<span class="page-link">...</span>'; pager.appendChild(more); break; } }
-  }
+  function openProfileModal(id){ const p = users.find(x=>x.id===id); if(!p) return; const visitor = getVisitor(); const match = scoreProfile(p, visitor && visitor.interests ? visitor.interests : []); document.getElementById('modal-photo').src = p.photo; document.getElementById('modal-name').textContent = `${p.name}`; document.getElementById('modal-meta').textContent = `${p.age} • ${p.job} • ${p.country}`; document.getElementById('modal-bio').textContent = p.bio + ' Email: ' + p.email; const tags = document.getElementById('modal-tags'); tags.innerHTML = p.interests.map(t=>`<span class="tag-chip ${visitor && visitor.interests && visitor.interests.includes(t)?'match':''}">${t}</span>`).join(' ');
+    const actions = document.getElementById('modal-actions'); actions.innerHTML = '';
+    const contactBtn = document.createElement('button'); contactBtn.className='btn btn-success me-2'; contactBtn.textContent = 'Contact Support (WhatsApp)'; contactBtn.onclick = ()=>{ openWhatsApp(visitor, p, match); };
+    const favBtn = document.createElement('button'); favBtn.className='btn btn-outline-primary'; favBtn.textContent = getFavs().includes(p.id)?'♥ Favorited':'♡ Favorite'; favBtn.onclick = ()=>{ toggleFav(p.id); favBtn.textContent = getFavs().includes(p.id)?'♥ Favorited':'♡ Favorite'; };
+    actions.appendChild(contactBtn); actions.appendChild(favBtn);
+    document.getElementById('profileModal').classList.add('show'); }
+  function closeModal(){ document.getElementById('profileModal').classList.remove('show'); }
 
-  // modal
-  const modal = document.getElementById('profileModal');
-  function openModal(uid){ const u = users.find(x=>x.id===uid); if(!u) return; document.getElementById('modal-photo').src = u.photo; document.getElementById('modal-name').textContent = `${u.name}, ${u.age}`; document.getElementById('modal-location').textContent = `${u.country} • ${u.job}`; document.getElementById('modal-bio').textContent = u.bio + ' Email: ' + u.email; const actions = document.getElementById('modal-actions'); actions.innerHTML = ''; const likeBtn = document.createElement('button'); likeBtn.className='btn btn-primary btn-like me-2'; likeBtn.textContent='❤ Favorite'; likeBtn.onclick = ()=>{ toggleFav(u.id); alert('Added to favorites'); render(); closeModal(); };
-    const contactBtn = document.createElement('button'); contactBtn.className='btn btn-success'; contactBtn.textContent='Contact Support (WhatsApp)'; contactBtn.onclick = ()=>{ openSupport(getVisitor(), u.id); };
-    actions.appendChild(likeBtn); actions.appendChild(contactBtn);
-    modal.classList.add('show'); }
-  function closeModal(){ modal.classList.remove('show'); }
+  function loadMore(){ page++; const total = currentList.length; const maxPage = Math.ceil(total / PAGE_SIZE); if(page > maxPage) { document.getElementById('btn-load-more').disabled = true; return; } renderGrid(); }
 
-  // events
+  // online counter
+  function startOnline(){ const el = document.getElementById('online-count'); let base = 1400 + randInt(0,600); el.textContent = base.toLocaleString(); setInterval(()=>{ const delta = randInt(-10,20); base = Math.max(80, base + delta); el.textContent = base.toLocaleString(); }, 2000); }
+
+  // bind UI
+  document.getElementById('hero-male').onclick = ()=>{ setVisitorType('male'); document.getElementById('hero-male').classList.add('active'); document.getElementById('hero-female').classList.remove('active'); };
+  document.getElementById('hero-female').onclick = ()=>{ setVisitorType('female'); document.getElementById('hero-female').classList.add('active'); document.getElementById('hero-male').classList.remove('active'); };
   document.getElementById('btn-search').onclick = ()=>{ render(1, document.getElementById('search-q').value.trim()); };
-  document.getElementById('btn-gender-male').onclick = ()=>{ setVisitor('male'); render(1); };
-  document.getElementById('btn-gender-female').onclick = ()=>{ setVisitor('female'); render(1); };
-  document.getElementById('btn-contact-support').onclick = ()=>{ openSupport(getVisitor(), null); };
-  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('cta-browse').onclick = ()=>{ window.scrollTo({ top: document.getElementById('results').offsetTop - 20, behavior:'smooth' }); };
+  document.getElementById('cta-how').onclick = ()=>{ window.scrollTo({ top: document.querySelector('.how-it-works').offsetTop - 20, behavior:'smooth' }); };
+  document.getElementById('btn-load-more').onclick = ()=>{ loadMore(); };
+  document.getElementById('close-modal').onclick = ()=>{ closeModal(); };
 
-  // init
-  startOnlineCounter(); renderSample(); render();
+  // initial render
+  renderHeroInterests(); startOnline(); renderMatchSummary(); renderGrid(true); renderFavCount();
 
-  // expose for debugging
-  window.dm = { seedUsers, openSupport, toggleFav, getFavs:getFavs, setVisitor, getVisitor };
+  // expose for debug
+  window.dm = { seedUsers, renderGrid, getVisitor, saveVisitor };
 })();
