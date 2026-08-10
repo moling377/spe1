@@ -1,4 +1,4 @@
-// app.js - improved matching by interests, better UI behavior, English text, hero, load more
+// app.js - use higher-resolution Unsplash images and ensure photos are sharper
 (function(){
   const USER_COUNT = 1000;
   const PAGE_SIZE = 24;
@@ -26,16 +26,18 @@
       const name = `${pick(firsts)} ${pick(lasts)}`;
       const age = randInt(20,50);
       const job = pick(jobs);
-      const photoIndex = i % 100;
+      const photoIndex = i % 1000; // use larger modulus for more sig variance
       const gender = (i % 2 === 0) ? 'male' : 'female';
       // interests: pick 2-6 unique tags
       let ints = [];
       const count = randInt(2,6);
       while(ints.length < count){ const t = pick(interestsPool); if(!ints.includes(t)) ints.push(t); }
-      const photo = `https://randomuser.me/api/portraits/${gender === 'male' ? 'men' : 'women'}/${photoIndex}.jpg`;
+      // Use Unsplash Source for higher-res portrait photos (600x600)
+      // Adding "portrait,face" query helps get clearer faces; sig ensures variety
+      const photo = `https://source.unsplash.com/600x600/?portrait,face,person&sig=${photoIndex}`;
       users.push({ id:i, name, age, job, country:'USA', gender, interests: ints, bio: `${job} who likes ${ints.slice(0,3).join(', ')}.`, email:`${name.toLowerCase().replace(/\s+/g,'')}${i}@example.com`, phone:`+1-${randInt(200,999)}-${randInt(200,999)}-${randInt(1000,9999)}`, photo});
     }
-    users.push({ id: USER_COUNT + 1, name: 'SiteAdmin', age: 30, job:'Administrator', country:'USA', gender:'male', interests:['support'], bio:'Site admin', email:'admin@example.com', phone:'+1-832-541-1560', photo:'https://randomuser.me/api/portraits/men/10.jpg', is_admin:true});
+    users.push({ id: USER_COUNT + 1, name: 'SiteAdmin', age: 30, job:'Administrator', country:'USA', gender:'male', interests:['support'], bio:'Site admin', email:'admin@example.com', phone:'+1-832-541-1560', photo:'https://source.unsplash.com/600x600/?portrait,person&sig=admin', is_admin:true});
     localStorage.setItem(K_USERS, JSON.stringify(users));
     return users;
   }
@@ -51,10 +53,14 @@
 
   // matching logic
   function scoreProfile(profile, visitorInterests){
-    if(!visitorInterests || visitorInterests.length===0) return 0;
-    const shared = profile.interests.filter(x=>visitorInterests.includes(x));
+    // Always return an object so callers can rely on .score, .shared, .sharedCount
+    const v = (visitorInterests && visitorInterests.length) ? visitorInterests : [];
+    if(v.length === 0){
+      return { score: 0, shared: [], sharedCount: 0 };
+    }
+    const shared = profile.interests.filter(x=>v.includes(x));
     const sharedCount = shared.length;
-    const score = Math.round((sharedCount / visitorInterests.length) * 100);
+    const score = Math.round((sharedCount / v.length) * 100);
     return { score, shared, sharedCount };
   }
 
@@ -108,12 +114,13 @@
     currentList = scored;
     const start = (page-1)*PAGE_SIZE; const items = scored.slice(start, start+PAGE_SIZE);
     items.forEach(p=>{ const col = document.createElement('div'); col.className='col-12 col-sm-6 col-md-4 col-lg-3'; const sharedHtml = p.shared && p.shared.length ? `<div class="mt-2">${p.shared.map(t=>`<span class="tag-chip match">${t}</span>`).join(' ')}</div>` : '';
+      const safeScore = (typeof p.matchScore === 'number' && !isNaN(p.matchScore)) ? p.matchScore : 0;
       col.innerHTML = `<div class="profile-card" data-id="${p.id}">
         <img loading="lazy" src="${p.photo}" class="profile-photo" alt="${p.name}">
         <div class="profile-body">
           <div class="d-flex justify-content-between align-items-start">
             <div><div class="profile-name">${p.name}</div><div class="profile-sub">${p.age} • ${p.job} • ${p.country}</div></div>
-            <div><div class="match-score">${p.matchScore}%</div></div>
+            <div><div class="match-score">${safeScore}%</div></div>
           </div>
           <p class="mt-2 small-muted">${p.bio}</p>
           <div class="d-flex flex-wrap gap-2 mt-2">${p.interests.map(t=>`<span class="tag-chip ${getVisitorInterests().includes(t)?'match':''}">${t}</span>`).join(' ')}</div>
