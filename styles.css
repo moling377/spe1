@@ -1,4 +1,4 @@
-/* styles.css - updated for darker homepage background and higher contrast */
+/* styles.css - updated for darker homepage background and onboarding styles */
 :root{
   --bg-gradient: linear-gradient(90deg, rgba(10,25,58,1) 0%, rgba(28,50,112,1) 100%);
   --muted: rgba(255,255,255,0.74);
@@ -16,6 +16,10 @@ body{
 .site-hero .hero-image{ width:420px; height:320px; object-fit:cover }
 .small-muted{ color:var(--muted); }
 .hero-controls .btn-light{ background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.06); }
+
+/* Onboarding chips */
+.chip { padding:6px 10px; border-radius:999px; background: rgba(255,255,255,0.06); color:#fff; border:1px solid rgba(255,255,255,0.03); cursor:pointer }
+.chip.active { background: var(--accent); color:#0b1224 }
 
 /* Profile cards on dark background */
 .profile-card{ background:var(--card-bg); border-radius:14px; overflow:hidden; box-shadow:0 12px 30px rgba(2,6,23,0.45); cursor:pointer; transition:transform .18s ease, box-shadow .18s ease; border: 1px solid rgba(255,255,255,0.04); }

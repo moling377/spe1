@@ -8,24 +8,19 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
-<body class="bg-light">
-  <header class="site-hero bg-gradient py-5">
+<body class="bg-dark">
+  <header class="site-hero py-5">
     <div class="container d-flex flex-column flex-md-row align-items-center gap-4">
       <div class="hero-copy">
         <h1 class="display-5 mb-3">Discover people who share your interests</h1>
-        <p class="lead mb-4">Select your gender and interests, and we’ll surface profiles with the best matches. Contact support directly via WhatsApp for any profile.</p>
+        <p class="lead mb-4">Tell us a little about yourself and we’ll surface the best matches — explained and ranked.</p>
         <div class="d-flex gap-2 mb-3">
           <a id="cta-browse" class="btn btn-primary btn-lg">Browse Profiles</a>
           <a id="cta-how" class="btn btn-outline-light btn-lg">How it works</a>
         </div>
         <div class="hero-controls mt-3">
-          <div class="mb-2 small-muted">Choose your gender</div>
-          <div class="btn-group mb-3" role="group">
-            <button id="hero-male" class="btn btn-light">I'm Male</button>
-            <button id="hero-female" class="btn btn-light">I'm Female</button>
-          </div>
-          <div class="mb-2 small-muted">Select interests (1–5)</div>
-          <div id="hero-interests" class="d-flex flex-wrap gap-2"></div>
+          <div class="mb-2 small-muted">Quick start: create your visitor profile</div>
+          <div><button id="btn-open-onboard" class="btn btn-light">Get matched — Start</button></div>
         </div>
       </div>
       <div class="hero-art d-none d-md-block ms-auto">
@@ -50,7 +45,9 @@
     </div>
 
     <section id="results">
-      <div id="match-summary" class="mb-3 small-muted">Choose interests to see tailored recommendations.</div>
+      <div id="match-summary" class="mb-3 small-muted">Create a quick visitor profile to see personalized recommendations.</div>
+      <div id="filters" class="mb-3 d-flex gap-3 align-items-center"></div>
+      <h4>Recommended for you</h4>
       <div id="profile-grid" class="row g-4"></div>
       <div class="text-center mt-4">
         <button id="btn-load-more" class="btn btn-outline-secondary">Load more</button>
@@ -60,9 +57,54 @@
     <hr class="my-5">
     <section class="how-it-works mb-5">
       <h3>How it works</h3>
-      <p class="small-muted">Select your gender and 1–5 interests. We score profiles by shared interests and surface the best matches. Click a profile to contact our support via WhatsApp (we include the match details in the message).</p>
+      <p class="small-muted">Select your preferences: seeking gender is enforced, choose interests and age range. We combine shared interests, activity, and popularity to compute a transparent match score.</p>
     </section>
   </main>
+
+  <!-- Onboarding Modal -->
+  <div class="modal" id="onboardModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Create your visitor profile</h5>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">I am</label>
+            <div class="btn-group" role="group">
+              <button id="ob-male" class="btn btn-outline-secondary">Male</button>
+              <button id="ob-female" class="btn btn-outline-secondary">Female</button>
+              <button id="ob-other" class="btn btn-outline-secondary">Other</button>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Seeking</label>
+            <div class="btn-group" role="group">
+              <button id="seek-male" class="btn btn-outline-secondary">Male</button>
+              <button id="seek-female" class="btn btn-outline-secondary">Female</button>
+              <button id="seek-any" class="btn btn-outline-secondary active">Any</button>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Age range</label>
+            <div class="d-flex gap-2 align-items-center">
+              <input id="age-min" type="number" class="form-control form-control-sm" value="35" style="width:80px">-
+              <input id="age-max" type="number" class="form-control form-control-sm" value="65" style="width:80px">
+            </div>
+            <div class="small-muted mt-1">Default 35–65</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Choose interests (1–5)</label>
+            <div id="onboard-interests" class="d-flex flex-wrap gap-2"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="ob-cancel" class="btn btn-secondary">Cancel</button>
+          <button id="ob-save" class="btn btn-primary">Save & Browse</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Profile Modal -->
   <div class="modal" id="profileModal" tabindex="-1">
