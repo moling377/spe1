@@ -2,59 +2,65 @@
 <html lang="zh">
 <head>
   <meta charset="utf-8" />
-  <title>静态约会演示</title>
+  <title>Dating (静态演示) — 浏览</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="bg-light">
-  <nav class="navbar navbar-expand navbar-dark bg-primary mb-4">
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
     <div class="container">
-      <a class="navbar-brand" href="#">Dating (静态版)</a>
-      <div class="d-flex">
-        <button id="btn-show-login" class="btn btn-sm btn-light me-2">选择用户登录</button>
-        <button id="btn-admin" class="btn btn-sm btn-outline-light">联系客服</button>
+      <a class="navbar-brand" href="#">Dating Demo</a>
+      <div class="d-flex align-items-center gap-2">
+        <input id="search-q" class="form-control form-control-sm" style="width:260px" placeholder="搜索名字 或 城市">
+        <button id="btn-search" class="btn btn-sm btn-light">搜索</button>
+        <button id="btn-show-login" class="btn btn-sm btn-outline-light">登录/切换用户</button>
+        <button id="btn-contact-support" class="btn btn-sm btn-light">联系客服</button>
       </div>
     </div>
   </nav>
 
-  <main class="container">
-    <div id="login-area" class="mb-3 card p-3">
-      <h5>登录 / 切换用户（演示）</h5>
-      <div class="row g-2">
-        <div class="col-auto">
-          <input id="input-user-id" class="form-control" placeholder="输入用户 ID (1 ~ 1000)">
-        </div>
-        <div class="col-auto">
-          <button id="btn-login" class="btn btn-primary">登录</button>
-        </div>
-        <div class="col-12 mt-2">
-          <small>或从下面快速选择（前 50）</small>
-          <div id="sample-users" class="list-group mt-1" style="max-height:180px; overflow:auto;"></div>
-        </div>
+  <main class="container my-4">
+    <div id="info-row" class="mb-3 text-muted">你可以作为游客浏览档案。点击个人卡片可查看详情并联系客服（会打开 WhatsApp）。</div>
+
+    <div id="profile-grid" class="row g-3"></div>
+
+    <nav aria-label="Page navigation">
+      <ul id="pager" class="pagination justify-content-center mt-4"></ul>
+    </nav>
+
+    <!-- Login / Switch user area -->
+    <div id="login-area" class="card p-3 mt-4">
+      <div class="d-flex gap-2 align-items-center mb-2">
+        <input id="input-user-id" class="form-control form-control-sm" style="width:140px" placeholder="输入用户 ID (1 ~ 1000)">
+        <button id="btn-login" class="btn btn-primary btn-sm">切换为该用户</button>
+        <div class="ms-auto text-muted">当前用户：<span id="current-user">游客</span></div>
+      </div>
+      <div>
+        <small>快速选择（前 24）</small>
+        <div id="sample-users" class="d-flex flex-wrap gap-2 mt-2"></div>
       </div>
     </div>
 
-    <div id="profile-list" class="row"></div>
-
-    <nav>
-      <ul id="pager" class="pagination mt-3"></ul>
-    </nav>
   </main>
 
-  <!-- 模态: 查看单个档案 -->
-  <div class="modal" tabindex="-1" id="profileModal">
-    <div class="modal-dialog">
+  <!-- Profile Modal -->
+  <div class="modal" id="profileModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
       <div class="modal-content">
-        <div class="modal-header">
-          <h5 id="modal-name" class="modal-title"></h5>
-          <button type="button" class="btn-close" id="close-modal"></button>
+        <div class="modal-body p-3">
+          <div class="d-flex gap-3">
+            <img id="modal-photo" src="" class="rounded" style="width:180px; height:180px; object-fit:cover">
+            <div class="flex-grow-1">
+              <h4 id="modal-name"></h4>
+              <div class="text-muted mb-2" id="modal-location"></div>
+              <p id="modal-bio"></p>
+              <div id="modal-actions" class="mt-3"></div>
+            </div>
+          </div>
         </div>
-        <div class="modal-body">
-          <p id="modal-city"></p>
-          <p id="modal-bio"></p>
-          <div id="modal-actions"></div>
-          <div id="modal-ticket" class="mt-3"></div>
+        <div class="modal-footer">
+          <button id="close-modal" class="btn btn-sm btn-secondary">关闭</button>
         </div>
       </div>
     </div>

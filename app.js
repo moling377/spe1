@@ -1,265 +1,153 @@
-// app.js - 纯前端实现（修改版）
-// 修改内容：联系客服直接跳转 WhatsApp（18325411560）；虚拟用户只显示 USA，不显示具体城市
-(function () {
-  // config
+// app.js - 改进：游客可浏览、每人带照片、点击卡片可联系客服（WhatsApp）、更真实的假人资料
+(function(){
   const USER_COUNT = 1000;
-  const PER_PAGE = 20;
+  const PER_PAGE = 24;
   const SUPPORT_WHATSAPP = '18325411560'; // 客服 WhatsApp
 
-  // helper: simple fake data generator (no外部依赖)
-  const firsts = ["James","John","Robert","Michael","William","David","Richard","Joseph","Thomas","Charles","Christopher","Daniel","Matthew","Anthony","Mark","Donald","Steven","Paul","Andrew","Joshua","Kenneth","Kevin","Brian","George","Edward","Ronald","Timothy","Jason","Jeffrey","Ryan"];
-  const lasts = ["Smith","Johnson","Williams","Brown","Jones","Garcia","Miller","Davis","Rodriguez","Martinez","Hernandez","Lopez","Gonzalez","Wilson","Anderson","Thomas","Taylor","Moore","Jackson","Martin"];
-  const cities = ["New York","Los Angeles","Chicago","Houston","Phoenix","San Antonio","San Diego","Dallas","San Jose","Austin","Jacksonville","Fort Worth","Columbus","San Francisco","Charlotte","Indianapolis"];
+  const firsts = ["James","John","Robert","Michael","William","David","Richard","Joseph","Thomas","Charles","Christopher","Daniel","Matthew","Anthony","Mark","Paul","Andrew","Joshua","Kenneth","Kevin","Brian","George","Edward","Ronald","Timothy","Jason","Jeffrey","Ryan","Eric","Jacob"];
+  const lasts = ["Smith","Johnson","Williams","Brown","Jones","Garcia","Miller","Davis","Rodriguez","Martinez","Hernandez","Lopez","Gonzalez","Wilson","Anderson","Taylor","Thomas","Moore","Jackson","Martin","Lee","Perez","Thompson"];
+  const jobs = ["Software Engineer","Designer","Product Manager","Teacher","Nurse","Photographer","Sales Manager","Data Analyst","Chef","Marketing Specialist","Student","Consultant","Accountant","Lawyer","Entrepreneur"];
+  const hobbies = ["hiking","coffee","traveling","reading","live music","gardening","cooking","yoga","photography","running","movies","board games","coding"];
 
   function randInt(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
-  function makeEmail(name, id){ return `${name.toLowerCase().replace(/\s+/g,'')}${id}@example.com`; }
-  function phone(){ return `${randInt(200,999)}-${randInt(200,999)}-${randInt(1000,9999)}`; }
+  function pick(arr){ return arr[randInt(0,arr.length-1)]; }
+  function makeEmail(name,id){ return `${name.toLowerCase().replace(/\s+/g,'')}${id}@example.com`; }
+  function phone(){ return `+1-${randInt(200,999)}-${randInt(200,999)}-${randInt(1000,9999)}`; }
 
-  // storage keys
-  const K_USERS = 'dm_users_v1';
-  const K_LIKES = 'dm_likes_v1'; // object: { likerId: [likedId,...], ... }
-  const K_MATCHES = 'dm_matches_v1'; // array of "min-max" strings
-  const K_ME = 'dm_me_v1'; // current user id
+  const K_USERS = 'dm_users_v2';
+  const K_LIKES = 'dm_likes_v2';
+  const K_MATCHES = 'dm_matches_v2';
+  const K_ME = 'dm_me_v2';
 
-  // load/generate users
-  function seedUsers() {
+  function seedUsers(){
     let users = JSON.parse(localStorage.getItem(K_USERS) || 'null');
-    if (users && users.length >= USER_COUNT) return users;
+    if(users && users.length >= USER_COUNT) return users;
     users = [];
-    for (let i=1;i<=USER_COUNT;i++){
-      const name = `${firsts[randInt(0,firsts.length-1)]} ${lasts[randInt(0,lasts.length-1)]}`;
-      users.push({
-        id: i,
-        name,
-        age: randInt(18,60),
-        city: 'USA', // 只显示在美国，不显示具体城市
-        bio: `Hi, I'm ${name}. I enjoy hiking, coffee, and meeting new people.`,
-        email: makeEmail(name,i),
-        phone: phone()
-      });
+    for(let i=1;i<=USER_COUNT;i++){
+      const name = `${pick(firsts)} ${pick(lasts)}`;
+      const age = randInt(19,55);
+      const job = pick(jobs);
+      const hobby = pick(hobbies);
+      // use randomuser portraits (0-99) and alternate gender
+      const imgIndex = (i % 100);
+      const gender = (i % 2 === 0) ? 'men' : 'women';
+      const photo = `https://randomuser.me/api/portraits/${gender}/${imgIndex}.jpg`;
+      users.push({ id:i, name, age, city:'USA', job, bio:`${job} who likes ${hobby} and meeting new people.`, email:makeEmail(name,i), phone:phone(), photo });
     }
-    // add a SiteAdmin as id=1001 for convenience (仍然存在，但不用于工单审批流程)
-    users.push({ id: USER_COUNT+1, name: "SiteAdmin", age: 30, city: "USA", bio: "Administrator", email: "admin@example.com", phone: "000-000-0000", is_admin:true});
+    // add admin user (not shown among first 1000)
+    users.push({ id: USER_COUNT + 1, name: 'SiteAdmin', age: 30, city:'USA', job:'Administrator', bio:'Site admin', email:'admin@example.com', phone:'+1-832-541-1560', photo: 'https://randomuser.me/api/portraits/men/10.jpg', is_admin:true });
     localStorage.setItem(K_USERS, JSON.stringify(users));
     return users;
   }
 
-  // data helpers
   function getLikes(){ return JSON.parse(localStorage.getItem(K_LIKES) || '{}'); }
   function saveLikes(o){ localStorage.setItem(K_LIKES, JSON.stringify(o)); }
   function getMatches(){ return JSON.parse(localStorage.getItem(K_MATCHES) || '[]'); }
   function saveMatches(a){ localStorage.setItem(K_MATCHES, JSON.stringify(a)); }
   function setMe(id){ localStorage.setItem(K_ME, String(id)); }
-  function getMe(){ const v = localStorage.getItem(K_ME); return v ? parseInt(v,10): null; }
+  function getMe(){ const v = localStorage.getItem(K_ME); return v?parseInt(v,10):null; }
 
-  // business logic
-  function likeUser(likerId, likedId) {
-    if (likerId===likedId) return;
+  function likeUser(likerId, likedId){
+    if(!likerId) return false;
+    if(likerId===likedId) return false;
     const likes = getLikes();
     likes[likerId] = likes[likerId] || [];
-    if (likes[likerId].includes(likedId)){
-      // unlike
+    if(likes[likerId].includes(likedId)){
       likes[likerId] = likes[likerId].filter(x=>x!==likedId);
     } else {
       likes[likerId].push(likedId);
     }
     saveLikes(likes);
-    // check mutual
     const likedLikes = likes[likedId] || [];
-    if (likes[likerId].includes(likedId) && likedLikes.includes(likerId)) {
-      // create match pair (store min-max string)
-      const a = Math.min(likerId, likedId), b = Math.max(likerId, likedId);
-      const matches = getMatches();
-      const key = `${a}-${b}`;
-      if (!matches.includes(key)){ matches.push(key); saveMatches(matches); }
+    if(likes[likerId].includes(likedId) && likedLikes.includes(likerId)){
+      const a = Math.min(likerId, likedId), b=Math.max(likerId, likedId);
+      const matches = getMatches(); const key = `${a}-${b}`;
+      if(!matches.includes(key)){ matches.push(key); saveMatches(matches); }
       return true;
     }
     return false;
   }
 
-  function isMatched(a,b){
-    const key = `${Math.min(a,b)}-${Math.max(a,b)}`;
-    return getMatches().includes(key);
-  }
+  function isMatched(a,b){ const key = `${Math.min(a,b)}-${Math.max(a,b)}`; return getMatches().includes(key); }
 
-  // 新：联系客服 -> 直接打开 WhatsApp（带上简单说明）
-  function openSupportWhatsApp(requesterId, targetId){
+  function openSupport(requesterId, targetId){
     const users = JSON.parse(localStorage.getItem(K_USERS) || '[]');
     const requester = users.find(u=>u.id===requesterId);
     const target = users.find(u=>u.id===targetId);
-    const rName = requester ? requester.name : `User ${requesterId}`;
-    const tName = target ? target.name : `User ${targetId}`;
-    const text = encodeURIComponent(`您好，我(${rName}, ID:${requesterId})想索要 ${tName} (ID:${targetId}) 的联系方式，请帮忙。`);
+    const r = requester ? `${requester.name} (ID:${requester.id})` : 'Guest';
+    const t = target ? `${target.name} (ID:${target.id})` : `User ${targetId}`;
+    const text = encodeURIComponent(`您好，我是${r}，我想索要 ${t} 的联系方式，请协助。`);
     const url = `https://wa.me/${SUPPORT_WHATSAPP}?text=${text}`;
     window.open(url, '_blank');
-    return true;
   }
 
-  // UI rendering
+  // UI
   const users = seedUsers();
-  let currentPage = 1;
+  let page = 1;
 
-  function renderSampleUsers(){
-    const box = document.getElementById('sample-users');
-    box.innerHTML = '';
-    const sample = users.slice(0,50);
-    sample.forEach(u=>{
-      const a = document.createElement('a');
-      a.href='#';
-      a.className = 'list-group-item list-group-item-action';
-      a.textContent = `${u.id} - ${u.name} (${u.city})`;
-      a.onclick = (e)=>{ e.preventDefault(); document.getElementById('input-user-id').value = u.id; document.getElementById('btn-login').click(); }
-      box.appendChild(a);
+  const grid = document.getElementById('profile-grid');
+  const pager = document.getElementById('pager');
+  const sampleBox = document.getElementById('sample-users');
+  const currentUserSpan = document.getElementById('current-user');
+
+  function renderSample(){ sampleBox.innerHTML = ''; const sample = users.slice(0,24); sample.forEach(u=>{
+    const btn = document.createElement('button'); btn.className='btn btn-sm btn-outline-secondary'; btn.textContent=`${u.id} ${u.name}`;
+    btn.onclick = ()=>{ setMe(u.id); renderCurrent(); alert('切换为用户 ' + u.id); render(); };
+    sampleBox.appendChild(btn);
+  }); }
+
+  function renderCurrent(){ const me = getMe(); currentUserSpan.textContent = me ? `ID ${me}` : '游客'; }
+
+  function render(p=1, q=''){ page = p; grid.innerHTML = ''; const start=(p-1)*PER_PAGE; let list = users.slice(0,USER_COUNT); // exclude admin at the end
+    if(q){ const qq=q.toLowerCase(); list = list.filter(u=>u.name.toLowerCase().includes(qq) || u.city.toLowerCase().includes(qq) || u.job.toLowerCase().includes(qq)); }
+    const total = list.length; const items = list.slice(start, start+PER_PAGE);
+    items.forEach(u=>{
+      const col = document.createElement('div'); col.className='col-12 col-sm-6 col-md-4 col-lg-3';
+      col.innerHTML = `<div class="profile-card">
+        <img loading="lazy" src="${u.photo}" class="profile-photo" alt="${u.name}">
+        <div class="profile-body">
+          <div class="d-flex justify-content-between align-items-start">
+            <div><div class="profile-name">${u.name}</div><div class="profile-sub">${u.age} • ${u.job} • ${u.city}</div></div>
+            <div>
+              <button class="btn btn-sm btn-outline-primary btn-like">❤</button>
+            </div>
+          </div>
+          <p class="mt-2 small-muted">${u.bio}</p>
+          <div class="d-flex gap-2 mt-2">
+            <button class="btn btn-sm btn-light btn-view">查看</button>
+            <button class="btn btn-sm btn-success btn-contact">联系客服</button>
+          </div>
+        </div></div>`;
+      grid.appendChild(col);
+      // bind
+      col.querySelector('.btn-view').onclick = ()=>{ openModal(u.id); };
+      col.querySelector('.btn-contact').onclick = ()=>{ openSupport(getMe(), u.id); };
+      const likeBtn = col.querySelector('.btn-like'); likeBtn.onclick = ()=>{ const me=getMe(); if(!me){ alert('请先切换为用户以使用喜欢功能（或继续以游客身份浏览）。'); return; } const matched = likeUser(me, u.id); likeBtn.textContent = matched ? '♥' : '❤'; if(matched) alert('已匹配！'); };
     });
-  }
-
-  function renderProfiles(page=1, q=''){
-    currentPage = page;
-    const start = (page-1)*PER_PAGE;
-    let list = users.filter(u=>u.id !== getMe());
-    if (q) {
-      const qq = q.toLowerCase();
-      list = list.filter(u=>u.name.toLowerCase().includes(qq) || u.city.toLowerCase().includes(qq));
-    }
-    const total = list.length;
-    const pageItems = list.slice(start, start+PER_PAGE);
-
-    const container = document.getElementById('profile-list');
-    container.innerHTML = '';
-    const likes = getLikes();
-    const meId = getMe();
-
-    pageItems.forEach(u=>{
-      const col = document.createElement('div');
-      col.className = 'col-md-6 mb-3';
-      col.innerHTML = `<div class="card profile-card"><div class="card-body">
-        <h5>${u.name} <small class="text-muted">(${u.age})</small></h5>
-        <p>${u.city}</p>
-        <p>${u.bio}</p>
-        <div>
-          <button class="btn btn-sm btn-outline-primary btn-like" data-id="${u.id}">❤ 喜欢</button>
-          <button class="btn btn-sm btn-link btn-view" data-id="${u.id}">查看</button>
-          <span class="ms-2 badge bg-success d-none match-badge">已匹配</span>
-        </div>
-      </div></div>`;
-      container.appendChild(col);
-      // set button state
-      const btnLike = col.querySelector('.btn-like');
-      const liked = meId && (likes[meId]||[]).includes(u.id);
-      btnLike.textContent = liked ? '♥ 已喜欢' : '❤ 喜欢';
-      btnLike.onclick = ()=>{ if(!meId){ alert('请先登录/选择用户'); return; } const matched = likeUser(meId, u.id); if(matched) alert('恭喜！已匹配🎉'); renderProfiles(currentPage, document.getElementById('search-q')?.value || ''); renderPager(total); }
-
-      const btnView = col.querySelector('.btn-view');
-      btnView.onclick = ()=>{ showProfileModal(u.id); }
-
-      // show match badge if matched
-      if (meId && isMatched(meId, u.id)){
-        col.querySelector('.match-badge').classList.remove('d-none');
-      }
-    });
-
     renderPager(total);
   }
 
-  function renderPager(total){
-    const pager = document.getElementById('pager');
-    pager.innerHTML = '';
-    const pages = Math.max(1, Math.ceil(total / PER_PAGE));
-    for (let i=1;i<=pages;i++){
-      const li = document.createElement('li');
-      li.className = 'page-item' + (i===currentPage ? ' active' : '');
-      const a = document.createElement('a');
-      a.className = 'page-link';
-      a.href = '#';
-      a.textContent = i;
-      a.onclick = (e)=>{ e.preventDefault(); renderProfiles(i, document.getElementById('search-q')?.value || ''); }
-      li.appendChild(a);
-      pager.appendChild(li);
-      if (i>=10 && i<pages) { // avoid too many pages in UI, show first 10 then stop (simple)
-        const more = document.createElement('li'); more.className='page-item disabled'; more.innerHTML='<span class="page-link">...</span>'; pager.appendChild(more); break;
-      }
-    }
+  function renderPager(total){ pager.innerHTML=''; const pages = Math.max(1, Math.ceil(total / PER_PAGE)); for(let i=1;i<=pages;i++){ const li=document.createElement('li'); li.className='page-item'+(i===page?' active':''); const a=document.createElement('a'); a.className='page-link'; a.href='#'; a.textContent=i; a.onclick=(e)=>{e.preventDefault(); render(i, document.getElementById('search-q').value.trim());}; li.appendChild(a); pager.appendChild(li); if(i>=8 && i<pages){ const more=document.createElement('li'); more.className='page-item disabled'; more.innerHTML='<span class="page-link">...</span>'; pager.appendChild(more); break; } }
   }
 
-  // modal
+  // modal logic
   const modal = document.getElementById('profileModal');
-  function showProfileModal(uid){
-    const u = users.find(x=>x.id===uid);
-    if (!u) return;
-    document.getElementById('modal-name').textContent = `${u.name} (${u.age})`;
-    document.getElementById('modal-city').textContent = u.city;
-    document.getElementById('modal-bio').textContent = u.bio;
-    const actions = document.getElementById('modal-actions');
-    actions.innerHTML = '';
-    const me = getMe();
-    const liked = me && (getLikes()[me]||[]).includes(u.id);
-    const likeBtn = document.createElement('button');
-    likeBtn.className = 'btn btn-primary me-2';
-    likeBtn.textContent = liked ? '取消喜欢' : '❤ 喜欢';
-    likeBtn.onclick = ()=>{
-      if(!me){ alert('请先登录'); return; }
-      const matched = likeUser(me, u.id);
-      if (matched) alert('恭喜！已匹配🎉');
-      closeModal(); renderProfiles(currentPage, document.getElementById('search-q')?.value || '');
-    };
-    actions.appendChild(likeBtn);
-
-    if (me && isMatched(me, u.id)){
-      const reqBtn = document.createElement('button');
-      reqBtn.className = 'btn btn-success';
-      reqBtn.textContent = '联系客服索要联系方式';
-      reqBtn.onclick = ()=>{
-        openSupportWhatsApp(me, u.id);
-        closeModal();
-      };
-      actions.appendChild(reqBtn);
-    }
-
-    // 不再显示工单信息（已移除工单流程）
-    document.getElementById('modal-ticket').innerHTML = '';
-
-    modal.classList.add('show');
-  }
+  function openModal(uid){ const u = users.find(x=>x.id===uid); if(!u) return; document.getElementById('modal-photo').src = u.photo; document.getElementById('modal-name').textContent = `${u.name}, ${u.age}`; document.getElementById('modal-location').textContent = `${u.city} • ${u.job}`; document.getElementById('modal-bio').textContent = u.bio + ' Email: ' + u.email; const actions = document.getElementById('modal-actions'); actions.innerHTML = ''; const likeBtn = document.createElement('button'); likeBtn.className='btn btn-primary btn-like me-2'; likeBtn.textContent='❤ 喜欢'; likeBtn.onclick = ()=>{ const me=getMe(); if(!me){ alert('请先切换用户以使用喜欢功能。'); return; } const matched = likeUser(me, u.id); if(matched) alert('已匹配！'); render(); closeModal(); };
+    const contactBtn = document.createElement('button'); contactBtn.className='btn btn-success'; contactBtn.textContent='联系客服'; contactBtn.onclick = ()=>{ openSupport(getMe(), u.id); };
+    actions.appendChild(likeBtn); actions.appendChild(contactBtn);
+    modal.classList.add('show'); }
   function closeModal(){ modal.classList.remove('show'); }
 
-  // 将原来的管理员按钮改为直接打开客服 WhatsApp（因为不再有工单审批流程）
-  function openSupportFromHeader(){
-    // 若已登录则包含请求者信息，否则不带 requester
-    const me = getMe();
-    const requesterText = me ? `我(用户ID:${me})` : '我';
-    const text = encodeURIComponent(`您好，${requesterText} 需要客服协助。`);
-    const url = `https://wa.me/${SUPPORT_WHATSAPP}?text=${text}`;
-    window.open(url, '_blank');
-  }
-
-  // init and events
-  document.getElementById('btn-show-login').onclick = ()=>{
-    document.getElementById('login-area').scrollIntoView({behavior:'smooth'});
-  };
-  document.getElementById('btn-admin').onclick = openSupportFromHeader; // 改为直接联系客服
+  // events
+  document.getElementById('btn-search').onclick = ()=>{ render(1, document.getElementById('search-q').value.trim()); };
+  document.getElementById('btn-show-login').onclick = ()=>{ document.getElementById('input-user-id').scrollIntoView({behavior:'smooth'}); };
+  document.getElementById('btn-contact-support').onclick = ()=>{ const me=getMe(); openSupport(me, null); };
+  document.getElementById('btn-login').onclick = ()=>{ const v = Number(document.getElementById('input-user-id').value); if(!v || !users.find(u=>u.id===v)){ alert('请输入有效用户 ID'); return; } setMe(v); renderCurrent(); alert('已切换为用户 ' + v); render(); };
   document.getElementById('close-modal').onclick = closeModal;
 
-  document.getElementById('btn-login').onclick = ()=>{
-    const v = Number(document.getElementById('input-user-id').value);
-    if (!v || !users.find(u=>u.id===v)){ alert('请输入有效用户 ID'); return; }
-    setMe(v);
-    alert('已切换为用户 ID ' + v);
-    renderProfiles(1);
-    renderSampleUsers();
-  };
+  // init
+  renderSample(); renderCurrent(); render();
 
-  // initial UI: search box
-  const searchRow = document.createElement('div');
-  searchRow.className = 'mb-3 row';
-  searchRow.innerHTML = `<div class="col-auto"><input id="search-q" class="form-control" placeholder="搜索名字或城市"></div>
-    <div class="col-auto"><button id="btn-search" class="btn btn-secondary">搜索</button></div>`;
-  document.querySelector('main.container').insertBefore(searchRow, document.getElementById('profile-list'));
-  document.getElementById('btn-search').onclick = ()=>{ renderProfiles(1, document.getElementById('search-q').value.trim()); };
-
-  // render initial
-  renderSampleUsers();
-  renderProfiles(1);
-
-  // expose some helpers for debugging (optional)
-  window.dm = { users, seedUsers, getLikes, getMatches, submitSupport: openSupportWhatsApp, setMe, getMe };
+  // expose for debugging
+  window.dm = { seedUsers, openSupport, likeUser, getLikes:getLikes, getMatches:()=>getMatches(), setMe, getMe };
 })();
