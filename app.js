@@ -1,4 +1,4 @@
-// app.js - use higher-resolution Unsplash images and ensure photos are sharper with srcset 2x
+// app.js - prefer local high-resolution SVG portraits if present; fallback to Unsplash
 (function(){
   const USER_COUNT = 1000;
   const PAGE_SIZE = 24;
@@ -14,7 +14,7 @@
   function pick(arr){ return arr[randInt(0,arr.length-1)]; }
 
   // localStorage keys
-  const K_USERS = 'dm_users_v4';
+  const K_USERS = 'dm_users_v5_localpics';
   const K_VISITOR = 'dm_visitor_v4';
   const K_FAVS = 'dm_favs_v4';
 
@@ -26,18 +26,21 @@
       const name = `${pick(firsts)} ${pick(lasts)}`;
       const age = randInt(20,50);
       const job = pick(jobs);
-      const photoIndex = i % 1000; // use larger modulus for more sig variance
+      const photoIndex = (i % 12) + 1; // use 12 local portraits
       const gender = (i % 2 === 0) ? 'male' : 'female';
       // interests: pick 2-6 unique tags
       let ints = [];
       const count = randInt(2,6);
       while(ints.length < count){ const t = pick(interestsPool); if(!ints.includes(t)) ints.push(t); }
-      // Use Unsplash Source for higher-res portrait photos (600x600)
-      // Adding "portrait,face" query helps get clearer faces; sig ensures variety
-      const photo = `https://source.unsplash.com/600x600/?portrait,face,person&sig=${photoIndex}`;
-      users.push({ id:i, name, age, job, country:'USA', gender, interests: ints, bio: `${job} who likes ${ints.slice(0,3).join(', ')}.`, email:`${name.toLowerCase().replace(/\s+/g,'')}${i}@example.com`, phone:`+1-${randInt(200,999)}-${randInt(200,999)}-${randInt(1000,9999)}`, photo});
+      // prefer a local high-res svg portrait if present in images/
+      const localPhoto = `images/portrait${photoIndex}.svg`;
+      // fallback to Unsplash if local not accessible
+      const remotePhoto = `https://source.unsplash.com/600x600/?portrait,face,person&sig=${i}`;
+      const photo = localPhoto; // using local images for crisp, scalable avatars
+
+      users.push({ id:i, name, age, job, country:'USA', gender, interests: ints, bio: `${job} who likes ${ints.slice(0,3).join(', ')}.`, email:`${name.toLowerCase().replace(/\s+/g,'')}${i}@example.com`, phone:`+1-${randInt(200,999)}-${randInt(200,999)}-${randInt(1000,9999)}`, photo, remotePhoto});
     }
-    users.push({ id: USER_COUNT + 1, name: 'SiteAdmin', age: 30, job:'Administrator', country:'USA', gender:'male', interests:['support'], bio:'Site admin', email:'admin@example.com', phone:'+1-832-541-1560', photo:'https://source.unsplash.com/600x600/?portrait,person&sig=admin', is_admin:true});
+    users.push({ id: USER_COUNT + 1, name: 'SiteAdmin', age: 30, job:'Administrator', country:'USA', gender:'male', interests:['support'], bio:'Site admin', email:'admin@example.com', phone:'+1-832-541-1560', photo:'images/portrait1.svg', is_admin:true});
     localStorage.setItem(K_USERS, JSON.stringify(users));
     return users;
   }
@@ -53,7 +56,6 @@
 
   // matching logic
   function scoreProfile(profile, visitorInterests){
-    // Always return an object so callers can rely on .score, .shared, .sharedCount
     const v = (Array.isArray(visitorInterests) && visitorInterests.length) ? visitorInterests : [];
     if(v.length === 0){
       return { score: 0, shared: [], sharedCount: 0 };
@@ -115,9 +117,11 @@
     const start = (page-1)*PAGE_SIZE; const items = scored.slice(start, start+PAGE_SIZE);
     items.forEach(p=>{ const col = document.createElement('div'); col.className='col-12 col-sm-6 col-md-4 col-lg-3'; const sharedHtml = p.shared && p.shared.length ? `<div class="mt-2">${p.shared.map(t=>`<span class="tag-chip match">${t}</span>`).join(' ')}</div>` : '';
       const safeScore = (typeof p.matchScore === 'number' && !isNaN(p.matchScore)) ? p.matchScore : 0;
-      // prepare srcset (replace 600x600 with 1200x1200)
-      const photo2x = (p.photo && p.photo.indexOf('/600x600/') !== -1) ? p.photo.replace('/600x600/','/1200x1200/') : p.photo;
-      const imgHtml = `<img loading="lazy" src="${p.photo}" srcset="${photo2x} 2x" class="profile-photo" alt="${p.name}">`;
+      // prepare srcset (replace 600x600 with 1200x1200) for remote fallback
+      const photo2x = (p.remotePhoto && p.remotePhoto.indexOf('/600x600/') !== -1) ? p.remotePhoto.replace('/600x600/','/1200x1200/') : p.remotePhoto;
+      const imgSrc = p.photo || p.remotePhoto;
+      const imgSrcset = photo2x ? `${photo2x} 2x` : '';
+      const imgHtml = `<img loading="lazy" src="${imgSrc}" ${imgSrcset?`srcset="${imgSrcset}"`:''} class="profile-photo" alt="${p.name}">`;
       col.innerHTML = `<div class="profile-card" data-id="${p.id}">
         ${imgHtml}
         <div class="profile-body">
@@ -138,8 +142,8 @@
 
   function openProfileModal(id){ const p = users.find(x=>x.id===id); if(!p) return; const visitor = getVisitor(); const match = scoreProfile(p, visitor && visitor.interests ? visitor.interests : []);
     const modalPhotoEl = document.getElementById('modal-photo');
-    modalPhotoEl.src = p.photo;
-    if(p.photo && p.photo.indexOf('/600x600/') !== -1) modalPhotoEl.srcset = p.photo.replace('/600x600/','/1200x1200/') + ' 2x';
+    modalPhotoEl.src = p.photo || p.remotePhoto;
+    if(p.remotePhoto && p.remotePhoto.indexOf('/600x600/') !== -1) modalPhotoEl.srcset = p.remotePhoto.replace('/600x600/','/1200x1200/') + ' 2x';
     document.getElementById('modal-name').textContent = `${p.name}`; document.getElementById('modal-meta').textContent = `${p.age} • ${p.job} • ${p.country}`; document.getElementById('modal-bio').textContent = p.bio + ' Email: ' + p.email; const tags = document.getElementById('modal-tags'); tags.innerHTML = p.interests.map(t=>`<span class="tag-chip ${visitor && visitor.interests && visitor.interests.includes(t)?'match':''}">${t}</span>`).join(' ');
     const actions = document.getElementById('modal-actions'); actions.innerHTML = '';
     const contactBtn = document.createElement('button'); contactBtn.className='btn btn-success me-2'; contactBtn.textContent = 'Contact Support (WhatsApp)'; contactBtn.onclick = ()=>{ openWhatsApp(visitor, p, match); };
